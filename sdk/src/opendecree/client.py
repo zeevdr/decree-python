@@ -1,4 +1,13 @@
-"""Synchronous ConfigClient for OpenDecree."""
+"""Synchronous ConfigClient for OpenDecree.
+
+The ConfigClient wraps the gRPC ConfigService with a Pythonic API:
+- Overloaded get() for typed reads (str by default, or int/float/bool/timedelta)
+- Context manager for clean channel lifecycle
+- watch() factory for live config subscriptions (Phase 4)
+- Automatic retry with exponential backoff
+
+All writes send string values — the server coerces to the schema-defined type.
+"""
 
 from __future__ import annotations
 
@@ -8,22 +17,15 @@ from typing import overload
 import grpc
 
 from opendecree._channel import create_channel
-from opendecree._convert import convert_value, typed_value_to_string
 from opendecree._interceptors import AuthInterceptor, _build_metadata
 from opendecree._retry import RetryConfig, with_retry
-from opendecree.errors import NotFoundError, map_grpc_error
-
-
-def _ensure_stubs() -> tuple:  # type: ignore[type-arg]
-    """Lazy-load generated stubs on first use."""
-    from opendecree._generated.centralconfig.v1 import (
-        config_service_pb2 as cs_pb2,
-    )
-    from opendecree._generated.centralconfig.v1 import (
-        config_service_pb2_grpc as cs_grpc,
-    )
-
-    return cs_pb2, cs_grpc
+from opendecree._stubs import (
+    ensure_stubs,
+    make_string_typed_value,
+    process_get_all_response,
+    process_get_response,
+)
+from opendecree.errors import map_grpc_error
 
 
 class ConfigClient:
@@ -33,6 +35,7 @@ class ConfigClient:
 
         with ConfigClient("localhost:9090", subject="myapp") as client:
             val = client.get("tenant-id", "payments.fee")
+            retries = client.get("tenant-id", "payments.retries", int)
     """
 
     def __init__(
@@ -63,7 +66,7 @@ class ConfigClient:
             self._channel = channel
         self._raw_channel = channel  # keep ref for close()
 
-        cs_pb2, cs_grpc = _ensure_stubs()
+        cs_pb2, cs_grpc = ensure_stubs()
         self._stub = cs_grpc.ConfigServiceStub(self._channel)
         self._pb2 = cs_pb2
 
@@ -127,7 +130,7 @@ class ConfigClient:
             The config value, converted to the requested type.
 
         Raises:
-            NotFoundError: If the field does not exist (and nullable is False).
+            NotFoundError: If the field has no value (and nullable is False).
             TypeMismatchError: If the value cannot be converted to the requested type.
         """
         target_type = type or str
@@ -137,12 +140,7 @@ class ConfigClient:
                 self._pb2.GetFieldRequest(tenant_id=tenant_id, field_path=field_path),
                 timeout=self._timeout,
             )
-            if not resp.value.HasField("value"):
-                if nullable:
-                    return None
-                raise NotFoundError(f"field {field_path!r} has no value for tenant {tenant_id!r}")
-            raw = typed_value_to_string(resp.value.value)
-            return convert_value(raw, target_type)
+            return process_get_response(resp, target_type, field_path, tenant_id, nullable)
 
         try:
             return with_retry(self._retry, _call)
@@ -157,11 +155,7 @@ class ConfigClient:
                 self._pb2.GetConfigRequest(tenant_id=tenant_id),
                 timeout=self._timeout,
             )
-            result: dict[str, str] = {}
-            for cv in resp.config.values:
-                if cv.HasField("value"):
-                    result[cv.field_path] = typed_value_to_string(cv.value)
-            return result
+            return process_get_all_response(resp)
 
         try:
             return with_retry(self._retry, _call)
@@ -169,14 +163,18 @@ class ConfigClient:
             raise map_grpc_error(e) from e
 
     def set(self, tenant_id: str, field_path: str, value: str) -> None:
-        """Set a config value (as string)."""
+        """Set a config value.
+
+        The value is sent as a string — the server coerces it to the
+        schema-defined type (integer, bool, etc.).
+        """
 
         def _call() -> None:
             self._stub.SetField(
                 self._pb2.SetFieldRequest(
                     tenant_id=tenant_id,
                     field_path=field_path,
-                    value=self._make_string_value(value),
+                    value=make_string_typed_value(value),
                 ),
                 timeout=self._timeout,
             )
@@ -199,7 +197,7 @@ class ConfigClient:
             updates = [
                 self._pb2.FieldUpdate(
                     field_path=fp,
-                    value=self._make_string_value(v),
+                    value=make_string_typed_value(v),
                 )
                 for fp, v in values.items()
             ]
@@ -207,7 +205,7 @@ class ConfigClient:
                 self._pb2.SetFieldsRequest(
                     tenant_id=tenant_id,
                     updates=updates,
-                    description=description or None,
+                    description=description,
                 ),
                 timeout=self._timeout,
             )
@@ -221,11 +219,11 @@ class ConfigClient:
         """Set a config field to null."""
 
         def _call() -> None:
-            # Send SetField with no value (null).
             self._stub.SetField(
                 self._pb2.SetFieldRequest(
                     tenant_id=tenant_id,
                     field_path=field_path,
+                    # No value field → server interprets as null.
                 ),
                 timeout=self._timeout,
             )
@@ -234,12 +232,6 @@ class ConfigClient:
             with_retry(self._retry, _call)
         except grpc.RpcError as e:
             raise map_grpc_error(e) from e
-
-    def _make_string_value(self, value: str) -> object:
-        """Create a TypedValue with string_value set."""
-        from opendecree._generated.centralconfig.v1 import types_pb2
-
-        return types_pb2.TypedValue(string_value=value)
 
     def watch(self, tenant_id: str) -> _WatcherContext:
         """Create a config watcher for a tenant.
@@ -251,21 +243,20 @@ class ConfigClient:
                 print(fee.value)
 
         The watcher inherits the client's connection and auth settings.
+        Auto-starts on enter, auto-stops on exit.
         """
         return _WatcherContext(self, tenant_id)
 
 
 class _WatcherContext:
-    """Placeholder for the watcher context manager (Phase 4)."""
+    """Sync watcher context manager — placeholder for Phase 4."""
 
     def __init__(self, client: ConfigClient, tenant_id: str) -> None:
         self._client = client
         self._tenant_id = tenant_id
 
     def __enter__(self) -> _WatcherContext:
-        # Phase 4: start watcher
         return self
 
     def __exit__(self, *exc: object) -> None:
-        # Phase 4: stop watcher
         pass

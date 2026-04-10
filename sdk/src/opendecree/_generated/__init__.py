@@ -1,6 +1,14 @@
-"""Generated proto stubs. This package adds itself to sys.path so that
-inter-proto imports (e.g., 'from centralconfig.v1 import types_pb2') resolve
-within the _generated directory."""
+"""Generated proto stubs.
+
+The generated code uses absolute imports (e.g., 'from centralconfig.v1 import
+types_pb2') because protoc generates imports relative to the proto root, not
+the Python package structure. We add this directory to sys.path so those
+imports resolve.
+
+TODO: This pollutes sys.path globally. If this causes import collisions,
+consider using a scoped import hook or configuring protoc to generate
+package-relative imports.
+"""
 
 import os
 import sys

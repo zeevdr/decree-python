@@ -1,4 +1,9 @@
-"""Type conversion between proto TypedValue strings and Python native types."""
+"""Type conversion between proto TypedValue and Python native types.
+
+The server stores all values internally as strings. The SDK converts between
+the proto TypedValue representation and Python types (str, int, float, bool,
+timedelta) at the boundary.
+"""
 
 from __future__ import annotations
 
@@ -6,12 +11,13 @@ from datetime import timedelta
 
 from opendecree.errors import TypeMismatchError
 
-# Map of supported Python types to their conversion functions.
-_CONVERTERS: dict[type, tuple[str, object]] = {}
-
 
 def _parse_timedelta(s: str) -> timedelta:
-    """Parse a Go-style duration string (e.g., '24h', '30m', '500ms') to timedelta."""
+    """Parse a Go-style duration string (e.g., '24h', '30m', '500ms') to timedelta.
+
+    Supported units: h (hours), m (minutes), s (seconds), ms (milliseconds),
+    us/µs (microseconds), ns (nanoseconds). Compound forms like '1h30m' work.
+    """
     if not s:
         return timedelta()
 
@@ -32,20 +38,21 @@ def _parse_timedelta(s: str) -> timedelta:
             i += 1
         unit = s[unit_start:i]
 
-        if unit == "h":
-            total_seconds += num * 3600
-        elif unit == "m":
-            total_seconds += num * 60
-        elif unit == "s":
-            total_seconds += num
-        elif unit == "ms":
-            total_seconds += num / 1000
-        elif unit == "us" or unit == "\u00b5s":
-            total_seconds += num / 1_000_000
-        elif unit == "ns":
-            total_seconds += num / 1_000_000_000
-        else:
-            raise ValueError(f"unknown duration unit: {unit!r} in {s!r}")
+        match unit:
+            case "h":
+                total_seconds += num * 3600
+            case "m":
+                total_seconds += num * 60
+            case "s":
+                total_seconds += num
+            case "ms":
+                total_seconds += num / 1000
+            case "us" | "\u00b5s":
+                total_seconds += num / 1_000_000
+            case "ns":
+                total_seconds += num / 1_000_000_000
+            case _:
+                raise ValueError(f"unknown duration unit: {unit!r} in {s!r}")
 
     return timedelta(seconds=total_seconds)
 
@@ -53,7 +60,10 @@ def _parse_timedelta(s: str) -> timedelta:
 def convert_value(raw: str, target_type: type) -> object:
     """Convert a raw string value to the target Python type.
 
-    Raises TypeMismatchError if conversion fails.
+    Supported types: str, int, float, bool, timedelta.
+
+    Raises:
+        TypeMismatchError: If the value cannot be converted to the target type.
     """
     if target_type is str:
         return raw
@@ -79,10 +89,10 @@ def convert_value(raw: str, target_type: type) -> object:
 def typed_value_to_string(tv: object) -> str:
     """Extract the string representation from a proto TypedValue.
 
-    The TypedValue is a oneof with fields like integer_value, string_value, etc.
-    We find whichever field is set and convert it to string.
+    The TypedValue oneof has 8 variants: integer_value, number_value,
+    string_value, bool_value, time_value, duration_value, url_value, json_value.
+    Each is converted to its canonical string form.
     """
-    # Import here to avoid circular dependency with generated code.
     from opendecree._generated.centralconfig.v1 import types_pb2
 
     if not isinstance(tv, types_pb2.TypedValue):
@@ -94,18 +104,29 @@ def typed_value_to_string(tv: object) -> str:
 
     val = getattr(tv, kind)
 
-    # Handle special protobuf types.
-    if kind == "time_value":
-        return val.ToJsonString()
-    if kind == "duration_value":
-        # Convert protobuf Duration to Go-style string.
-        total = val.seconds + val.nanos / 1e9
-        if total >= 3600 and total % 3600 == 0:
-            return f"{int(total // 3600)}h"
-        if total >= 60 and total % 60 == 0:
-            return f"{int(total // 60)}m"
-        if total == int(total):
-            return f"{int(total)}s"
-        return f"{total}s"
-
-    return str(val)
+    # Handle each variant explicitly for clarity and correctness.
+    match kind:
+        case "bool_value":
+            return "true" if val else "false"
+        case "time_value":
+            return val.ToJsonString()
+        case "duration_value":
+            # Use integer arithmetic to avoid float precision issues.
+            total_ns = val.seconds * 1_000_000_000 + val.nanos
+            if total_ns == 0:
+                return "0s"
+            total_s = total_ns // 1_000_000_000
+            remainder_ns = total_ns % 1_000_000_000
+            if remainder_ns == 0:
+                if total_s >= 3600 and total_s % 3600 == 0:
+                    return f"{total_s // 3600}h"
+                if total_s >= 60 and total_s % 60 == 0:
+                    return f"{total_s // 60}m"
+                return f"{total_s}s"
+            # Has sub-second component — use float seconds.
+            total_float = total_ns / 1_000_000_000
+            return f"{total_float}s"
+        case "integer_value" | "number_value" | "string_value" | "url_value" | "json_value":
+            return str(val)
+        case _:
+            return str(val)

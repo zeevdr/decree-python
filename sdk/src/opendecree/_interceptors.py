@@ -1,4 +1,9 @@
-"""gRPC metadata interceptors for authentication."""
+"""gRPC metadata interceptors for authentication.
+
+The sync client uses AuthInterceptor to inject metadata via intercept_channel.
+The async client injects metadata directly on each call since grpc.aio does
+not support intercept_channel.
+"""
 
 from __future__ import annotations
 
@@ -6,7 +11,6 @@ from collections.abc import Callable, Sequence
 from typing import Any
 
 import grpc
-import grpc.aio
 
 
 def _build_metadata(
@@ -16,7 +20,11 @@ def _build_metadata(
     tenant_id: str | None,
     token: str | None,
 ) -> list[tuple[str, str]]:
-    """Build auth metadata pairs."""
+    """Build auth metadata pairs from client options.
+
+    If a Bearer token is provided, it takes precedence over metadata headers.
+    Otherwise, x-subject, x-role, and x-tenant-id headers are set.
+    """
     if token:
         return [("authorization", f"Bearer {token}")]
     pairs: list[tuple[str, str]] = []
@@ -33,7 +41,10 @@ class AuthInterceptor(
     grpc.UnaryUnaryClientInterceptor,
     grpc.UnaryStreamClientInterceptor,
 ):
-    """Sync interceptor that injects auth metadata into every call."""
+    """Sync interceptor that injects auth metadata into every call.
+
+    Used by ConfigClient via grpc.intercept_channel().
+    """
 
     def __init__(self, metadata: list[tuple[str, str]]) -> None:
         self._metadata = metadata
@@ -57,34 +68,6 @@ class AuthInterceptor(
         return continuation(new_details, request)
 
 
-class AsyncAuthInterceptor(
-    grpc.aio.UnaryUnaryClientInterceptor,
-    grpc.aio.UnaryStreamClientInterceptor,
-):
-    """Async interceptor that injects auth metadata into every call."""
-
-    def __init__(self, metadata: list[tuple[str, str]]) -> None:
-        self._metadata = metadata
-
-    async def intercept_unary_unary(
-        self,
-        continuation: Callable[..., Any],
-        client_call_details: grpc.aio.ClientCallDetails,
-        request: Any,
-    ) -> Any:
-        new_details = _inject_aio_metadata(client_call_details, self._metadata)
-        return await continuation(new_details, request)
-
-    async def intercept_unary_stream(
-        self,
-        continuation: Callable[..., Any],
-        client_call_details: grpc.aio.ClientCallDetails,
-        request: Any,
-    ) -> Any:
-        new_details = _inject_aio_metadata(client_call_details, self._metadata)
-        return await continuation(new_details, request)
-
-
 def _inject_metadata(
     details: grpc.ClientCallDetails,
     extra: list[tuple[str, str]],
@@ -97,26 +80,6 @@ def _inject_metadata(
         timeout=details.timeout,
         metadata=metadata,
         credentials=details.credentials,
-    )
-
-
-def _inject_aio_metadata(
-    details: grpc.aio.ClientCallDetails,
-    extra: list[tuple[str, str]],
-) -> grpc.aio.ClientCallDetails:
-    """Return a new aio ClientCallDetails with extra metadata appended."""
-    metadata = grpc.aio.Metadata()
-    if details.metadata:
-        for key, value in details.metadata:
-            metadata.add(key, value)
-    for key, value in extra:
-        metadata.add(key, value)
-    return grpc.aio.ClientCallDetails(
-        method=details.method,
-        timeout=details.timeout,
-        metadata=metadata,
-        credentials=details.credentials,
-        wait_for_ready=details.wait_for_ready,
     )
 
 

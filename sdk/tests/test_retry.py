@@ -1,11 +1,12 @@
 """Tests for retry logic."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import grpc
+import grpc.aio
 import pytest
 
-from opendecree._retry import RetryConfig, with_retry
+from opendecree._retry import RetryConfig, async_with_retry, with_retry
 from tests.conftest import FakeRpcError
 
 
@@ -63,3 +64,56 @@ def test_retry_config_defaults():
     assert cfg.multiplier == 2.0
     assert grpc.StatusCode.UNAVAILABLE in cfg.retryable_codes
     assert grpc.StatusCode.DEADLINE_EXCEEDED in cfg.retryable_codes
+
+
+# --- Async retry ---
+
+
+@pytest.mark.asyncio
+async def test_async_no_retry_config():
+    async def fn() -> int:
+        return 42
+
+    assert await async_with_retry(None, fn) == 42
+
+
+@pytest.mark.asyncio
+async def test_async_retry_on_unavailable():
+    err = FakeRpcError(grpc.StatusCode.UNAVAILABLE)
+    call_count = 0
+
+    async def fn() -> str:
+        nonlocal call_count
+        call_count += 1
+        if call_count < 3:
+            raise err
+        return "ok"
+
+    with patch("opendecree._retry.asyncio.sleep", new_callable=AsyncMock):
+        result = await async_with_retry(RetryConfig(max_attempts=3), fn)
+
+    assert result == "ok"
+    assert call_count == 3
+
+
+@pytest.mark.asyncio
+async def test_async_no_retry_on_not_found():
+    err = FakeRpcError(grpc.StatusCode.NOT_FOUND)
+
+    async def fn() -> str:
+        raise err
+
+    with pytest.raises(grpc.aio.AioRpcError):
+        await async_with_retry(RetryConfig(max_attempts=3), fn)
+
+
+@pytest.mark.asyncio
+async def test_async_exhausted_retries():
+    err = FakeRpcError(grpc.StatusCode.UNAVAILABLE)
+
+    async def fn() -> str:
+        raise err
+
+    with patch("opendecree._retry.asyncio.sleep", new_callable=AsyncMock):
+        with pytest.raises(grpc.aio.AioRpcError):
+            await async_with_retry(RetryConfig(max_attempts=2), fn)

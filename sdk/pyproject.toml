@@ -22,7 +22,7 @@ classifiers = [
 ]
 dependencies = [
     "grpcio>=1.68.0,<2",
-    "protobuf>=5.29.0,<6",
+    "protobuf>=6.30.0,<7",
 ]
 
 [project.optional-dependencies]
@@ -55,6 +55,7 @@ select = ["E", "F", "I", "N", "UP", "B", "RUF"]
 
 [tool.ruff.lint.per-file-ignores]
 "src/opendecree/_generated/**" = ["ALL"]
+"src/opendecree/__init__.py" = ["E402"]
 "tests/**" = ["S101"]
 
 [tool.mypy]

@@ -12,7 +12,10 @@ All writes send string values — the server coerces to the schema-defined type.
 from __future__ import annotations
 
 from datetime import timedelta
-from typing import overload
+from typing import TYPE_CHECKING, overload
+
+if TYPE_CHECKING:
+    from opendecree.watcher import ConfigWatcher
 
 import grpc
 
@@ -233,30 +236,17 @@ class ConfigClient:
         except grpc.RpcError as e:
             raise map_grpc_error(e) from e
 
-    def watch(self, tenant_id: str) -> _WatcherContext:
+    def watch(self, tenant_id: str) -> ConfigWatcher:
         """Create a config watcher for a tenant.
 
-        Use as a context manager::
+        Use as a context manager — auto-starts on enter, auto-stops on exit::
 
             with client.watch("tenant-id") as watcher:
                 fee = watcher.field("payments.fee", float, default=0.01)
                 print(fee.value)
 
-        The watcher inherits the client's connection and auth settings.
-        Auto-starts on enter, auto-stops on exit.
+        The watcher uses the client's gRPC channel and auth settings.
         """
-        return _WatcherContext(self, tenant_id)
+        from opendecree.watcher import ConfigWatcher
 
-
-class _WatcherContext:
-    """Sync watcher context manager — placeholder for Phase 4."""
-
-    def __init__(self, client: ConfigClient, tenant_id: str) -> None:
-        self._client = client
-        self._tenant_id = tenant_id
-
-    def __enter__(self) -> _WatcherContext:
-        return self
-
-    def __exit__(self, *exc: object) -> None:
-        pass
+        return ConfigWatcher(self._stub, self._pb2, tenant_id, self._timeout)

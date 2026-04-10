@@ -20,6 +20,7 @@ from opendecree.errors import (
     UnavailableError,
 )
 from opendecree.types import Change, ConfigValue, ServerVersion
+from opendecree.watcher import ConfigWatcher, WatchedField
 
 __all__ = [
     "PROTO_VERSION",
@@ -30,6 +31,7 @@ __all__ = [
     "ChecksumMismatchError",
     "ConfigClient",
     "ConfigValue",
+    "ConfigWatcher",
     "DecreeError",
     "IncompatibleServerError",
     "InvalidArgumentError",
@@ -39,5 +41,6 @@ __all__ = [
     "ServerVersion",
     "TypeMismatchError",
     "UnavailableError",
+    "WatchedField",
     "__version__",
 ]

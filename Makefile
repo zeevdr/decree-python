@@ -1,6 +1,7 @@
 TOOLS_IMAGE := decree-python-tools
 TOOLS_SENTINEL := .tools-image-built
-DOCKER_RUN := docker run --rm -u $(shell id -u):$(shell id -g) -e HOME=/tmp -v $(CURDIR):/workspace -v $(CURDIR)/../decree/proto:/proto:ro -w /workspace $(TOOLS_IMAGE)
+DOCKER_RUN      := docker run --rm -u $(shell id -u):$(shell id -g) -e HOME=/tmp -v $(CURDIR):/workspace -v $(CURDIR)/../decree/proto:/proto:ro -w /workspace $(TOOLS_IMAGE)
+DOCKER_RUN_ROOT := docker run --rm -v $(CURDIR):/workspace -v $(CURDIR)/../decree/proto:/proto:ro -w /workspace $(TOOLS_IMAGE)
 
 PROTO_DIR := /proto
 GEN_DIR   := sdk/src/opendecree/_generated
@@ -47,17 +48,16 @@ typecheck: $(TOOLS_SENTINEL)
 
 ## test: Run tests with coverage
 test: $(TOOLS_SENTINEL)
-	docker run --rm -v $(CURDIR):/workspace -v $(CURDIR)/../decree/proto:/proto:ro -w /workspace $(TOOLS_IMAGE) \
-		sh -c "cd sdk && pip install -e . -q 2>/dev/null && pytest --cov --cov-report=term-missing"
+	$(DOCKER_RUN_ROOT) sh -c "cd sdk && pip install -e . -q 2>/dev/null && pytest --cov --cov-report=term-missing"
 
 ## build: Build sdist + wheel
 build: $(TOOLS_SENTINEL)
 	$(DOCKER_RUN) sh -c "cd sdk && python -m build"
 
 ## clean: Remove build artifacts
-clean:
-	rm -rf sdk/dist/ sdk/build/ sdk/src/*.egg-info
-	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+clean: $(TOOLS_SENTINEL)
+	$(DOCKER_RUN_ROOT) rm -rf sdk/dist/ sdk/build/ sdk/src/*.egg-info
+	$(DOCKER_RUN_ROOT) find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 
 ## help: Show this help
 help:

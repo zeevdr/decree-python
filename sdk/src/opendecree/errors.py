@@ -12,6 +12,12 @@ class DecreeError(Exception):
     """Base exception for all OpenDecree SDK errors."""
 
     def __init__(self, message: str, code: grpc.StatusCode | None = None) -> None:
+        """Create a DecreeError.
+
+        Args:
+            message: Human-readable error description.
+            code: The gRPC status code that caused this error, if any.
+        """
         super().__init__(message)
         self.code = code
 
@@ -65,7 +71,11 @@ _STATUS_MAP: dict[grpc.StatusCode, type[DecreeError]] = {
 
 
 def map_grpc_error(err: grpc.RpcError) -> DecreeError:
-    """Convert a gRPC RpcError to a typed DecreeError."""
+    """Convert a gRPC ``RpcError`` to a typed ``DecreeError``.
+
+    Maps known gRPC status codes to specific exception subclasses.
+    Unknown codes produce a generic ``DecreeError``.
+    """
     code = err.code()
     details = err.details()
     exc_class = _STATUS_MAP.get(code, DecreeError)

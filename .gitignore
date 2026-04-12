@@ -31,6 +31,9 @@ htmlcov/
 # ruff
 .ruff_cache/
 
+# Generated docs
+sdk/docs/api/
+
 # OS
 .DS_Store
 Thumbs.db

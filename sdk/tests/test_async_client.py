@@ -152,6 +152,42 @@ class TestAsyncConfigClientUnit:
         client._stub.SetField.assert_called_once()
 
     @pytest.mark.asyncio
+    async def test_get_all_grpc_error(self):
+        client = self._make_client()
+        err = FakeRpcError(grpc.StatusCode.UNAVAILABLE, "down")
+        client._stub.GetConfig = AsyncMock(side_effect=err)
+
+        with pytest.raises(UnavailableError):
+            await client.get_all("t1")
+
+    @pytest.mark.asyncio
+    async def test_set_grpc_error(self):
+        client = self._make_client()
+        err = FakeRpcError(grpc.StatusCode.UNAVAILABLE, "down")
+        client._stub.SetField = AsyncMock(side_effect=err)
+
+        with pytest.raises(UnavailableError):
+            await client.set("t1", "payments.fee", "0.5%")
+
+    @pytest.mark.asyncio
+    async def test_set_many_grpc_error(self):
+        client = self._make_client()
+        err = FakeRpcError(grpc.StatusCode.UNAVAILABLE, "down")
+        client._stub.SetFields = AsyncMock(side_effect=err)
+
+        with pytest.raises(UnavailableError):
+            await client.set_many("t1", {"a": "1"})
+
+    @pytest.mark.asyncio
+    async def test_set_null_grpc_error(self):
+        client = self._make_client()
+        err = FakeRpcError(grpc.StatusCode.UNAVAILABLE, "down")
+        client._stub.SetField = AsyncMock(side_effect=err)
+
+        with pytest.raises(UnavailableError):
+            await client.set_null("t1", "payments.fee")
+
+    @pytest.mark.asyncio
     async def test_context_manager(self):
         with patch("opendecree.async_client.create_aio_channel") as mock_ch:
             mock_channel = AsyncMock()

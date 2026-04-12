@@ -5,9 +5,11 @@ from __future__ import annotations
 import time
 from unittest.mock import MagicMock
 
+import grpc
 import pytest
 
 from opendecree.watcher import _SENTINEL_CHANGE, ConfigWatcher, WatchedField
+from tests.conftest import FakeRpcError
 
 # --- WatchedField unit tests ---
 
@@ -225,3 +227,40 @@ class TestConfigWatcher:
 
         # Should not raise.
         w._process_change(change)
+
+    def test_reconnect_on_unavailable(self):
+        """Subscribe raises UNAVAILABLE, watcher reconnects then stops."""
+        w = self._make_watcher()
+        w.field("fee", float, default=0.0)
+
+        call_count = 0
+
+        def _subscribe_side_effect(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise FakeRpcError(grpc.StatusCode.UNAVAILABLE, "connection lost")
+            # Second call: return empty iterator so thread exits.
+            return iter([])
+
+        w._stub.Subscribe.side_effect = _subscribe_side_effect
+
+        w.start()
+        time.sleep(2.5)  # enough for one reconnect cycle
+        w.stop()
+
+        assert call_count >= 2
+
+    def test_non_retryable_error_stops_loop(self):
+        """Non-retryable gRPC error stops the subscribe loop."""
+        w = self._make_watcher()
+        w.field("fee", float, default=0.0)
+
+        w._stub.Subscribe.side_effect = FakeRpcError(grpc.StatusCode.PERMISSION_DENIED, "forbidden")
+
+        w.start()
+        time.sleep(0.5)
+        w.stop()
+
+        # Thread should have exited on its own due to non-retryable error.
+        assert w._thread is None

@@ -11,6 +11,7 @@ RUN pip install --no-cache-dir \
     grpcio>=1.68.0 \
     protobuf>=5.29.0 \
     googleapis-common-protos>=1.66.0 \
-    build
+    build \
+    pdoc>=15.0
 
 WORKDIR /workspace

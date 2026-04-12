@@ -51,6 +51,20 @@ class AsyncConfigClient:
         timeout: float = 10.0,
         retry: RetryConfig | None = None,
     ) -> None:
+        """Create a new AsyncConfigClient.
+
+        Args:
+            target: gRPC server address (e.g., ``"localhost:9090"``).
+            subject: Identity for ``x-subject`` metadata header.
+            role: Role for ``x-role`` metadata header. Defaults to ``"superadmin"``.
+            tenant_id: Default tenant for ``x-tenant-id`` metadata header.
+            token: Bearer token. When set, metadata headers are not sent.
+            insecure: Use plaintext (no TLS). Defaults to True for local dev.
+            credentials: TLS channel credentials. Overrides *insecure*.
+            timeout: Default per-RPC timeout in seconds. Defaults to 10.
+            retry: Retry configuration. Defaults to ``RetryConfig()``.
+                Pass ``None`` to disable retry.
+        """
         self._timeout = timeout
         self._retry = retry if retry is not None else RetryConfig()
 
@@ -148,7 +162,17 @@ class AsyncConfigClient:
             raise map_grpc_error(e) from e
 
     async def get_all(self, tenant_id: str) -> dict[str, str]:
-        """Get all config values for a tenant as a string dict."""
+        """Get all config values for a tenant.
+
+        Args:
+            tenant_id: Tenant UUID.
+
+        Returns:
+            A dict mapping field paths to their string values.
+
+        Raises:
+            NotFoundError: If the tenant does not exist.
+        """
 
         async def _call() -> dict[str, str]:
             resp = await self._stub.GetConfig(
@@ -168,6 +192,16 @@ class AsyncConfigClient:
 
         The value is sent as a string — the server coerces it to the
         schema-defined type (integer, bool, etc.).
+
+        Args:
+            tenant_id: Tenant UUID.
+            field_path: Dot-separated field path (e.g., ``"payments.fee"``).
+            value: The value as a string.
+
+        Raises:
+            NotFoundError: If the field does not exist in the schema.
+            LockedError: If the field is locked.
+            InvalidArgumentError: If the value fails validation.
         """
 
         async def _call() -> None:
@@ -193,7 +227,18 @@ class AsyncConfigClient:
         *,
         description: str = "",
     ) -> None:
-        """Atomically set multiple config values."""
+        """Atomically set multiple config values.
+
+        Args:
+            tenant_id: Tenant UUID.
+            values: Dict mapping field paths to string values.
+            description: Optional description for the audit log.
+
+        Raises:
+            NotFoundError: If a field does not exist in the schema.
+            LockedError: If any field is locked.
+            InvalidArgumentError: If any value fails validation.
+        """
 
         async def _call() -> None:
             updates = [
@@ -219,7 +264,16 @@ class AsyncConfigClient:
             raise map_grpc_error(e) from e
 
     async def set_null(self, tenant_id: str, field_path: str) -> None:
-        """Set a config field to null."""
+        """Set a config field to null.
+
+        Args:
+            tenant_id: Tenant UUID.
+            field_path: Dot-separated field path.
+
+        Raises:
+            NotFoundError: If the field does not exist in the schema.
+            LockedError: If the field is locked.
+        """
 
         async def _call() -> None:
             await self._stub.SetField(

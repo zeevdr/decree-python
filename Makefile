@@ -6,7 +6,7 @@ DOCKER_RUN_ROOT := docker run --rm -v $(CURDIR):/workspace -v $(CURDIR)/../decre
 PROTO_DIR := /proto
 GEN_DIR   := sdk/src/opendecree/_generated
 
-.PHONY: all generate lint format typecheck test build clean tools help
+.PHONY: all generate lint format typecheck test build clean tools docs help
 
 all: generate lint typecheck test
 
@@ -49,6 +49,12 @@ typecheck: $(TOOLS_SENTINEL)
 ## test: Run tests with coverage
 test: $(TOOLS_SENTINEL)
 	$(DOCKER_RUN_ROOT) sh -c "cd sdk && pip install -e . -q 2>/dev/null && pytest --cov --cov-report=term-missing"
+
+## docs: Generate API reference HTML from docstrings (pdoc)
+docs: $(TOOLS_SENTINEL)
+	@mkdir -p sdk/docs/api
+	$(DOCKER_RUN_ROOT) sh -c "cd sdk && pip install -e . -q 2>/dev/null && pdoc --output-directory /workspace/sdk/docs/api --no-show-source --docformat google opendecree !opendecree._generated && chown -R $(shell id -u):$(shell id -g) /workspace/sdk/docs/api"
+	@echo "Generated API docs in sdk/docs/api/"
 
 ## build: Build sdist + wheel
 build: $(TOOLS_SENTINEL)

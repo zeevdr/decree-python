@@ -12,6 +12,7 @@ requires-python = ">=3.11"
 authors = [
     { name = "Zeev Dreifuss" },
 ]
+keywords = ["config", "configuration", "decree", "grpc", "schema", "management"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Programming Language :: Python :: 3.11",

@@ -1,5 +1,10 @@
 # OpenDecree Python SDK
 
+[![CI](https://github.com/zeevdr/decree-python/actions/workflows/ci.yml/badge.svg)](https://github.com/zeevdr/decree-python/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/opendecree)](https://pypi.org/project/opendecree/)
+[![Python](https://img.shields.io/pypi/pyversions/opendecree)](https://pypi.org/project/opendecree/)
+[![License](https://img.shields.io/github/license/zeevdr/decree-python)](LICENSE)
+
 Python SDK for [OpenDecree](https://github.com/zeevdr/decree) — schema-driven configuration management.
 
 ## Install

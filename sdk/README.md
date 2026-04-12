@@ -1,5 +1,10 @@
 # OpenDecree Python SDK
 
+[![CI](https://github.com/zeevdr/decree-python/actions/workflows/ci.yml/badge.svg)](https://github.com/zeevdr/decree-python/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/opendecree)](https://pypi.org/project/opendecree/)
+[![Python](https://img.shields.io/pypi/pyversions/opendecree)](https://pypi.org/project/opendecree/)
+[![License](https://img.shields.io/github/license/zeevdr/decree-python)](https://github.com/zeevdr/decree-python/blob/main/LICENSE)
+
 Python SDK for [OpenDecree](https://github.com/zeevdr/decree) — schema-driven configuration management.
 
 ## Install
@@ -53,10 +58,10 @@ async with AsyncConfigClient("localhost:9090", subject="myapp") as client:
 
 ## Documentation
 
-- [Quick Start](sdk/docs/quickstart.md)
-- [Configuration](sdk/docs/configuration.md)
-- [Watching](sdk/docs/watching.md)
-- [Async Usage](sdk/docs/async.md)
+- [Quick Start](docs/quickstart.md)
+- [Configuration](docs/configuration.md)
+- [Watching](docs/watching.md)
+- [Async Usage](docs/async.md)
 
 For detailed concepts (schemas, typed values, versioning, auth), see the [main OpenDecree docs](https://github.com/zeevdr/decree).
 
@@ -67,4 +72,4 @@ For detailed concepts (schemas, typed values, versioning, auth), see the [main O
 
 ## License
 
-Apache License 2.0 — see [LICENSE](LICENSE).
+Apache License 2.0 — see [LICENSE](https://github.com/zeevdr/decree-python/blob/main/LICENSE).

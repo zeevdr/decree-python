@@ -38,8 +38,8 @@ def _build_metadata(
 
 
 class AuthInterceptor(
-    grpc.UnaryUnaryClientInterceptor,
-    grpc.UnaryStreamClientInterceptor,
+    grpc.UnaryUnaryClientInterceptor,  # type: ignore[misc]
+    grpc.UnaryStreamClientInterceptor,  # type: ignore[misc]
 ):
     """Sync interceptor that injects auth metadata into every call.
 
@@ -83,7 +83,7 @@ def _inject_metadata(
     )
 
 
-class _ClientCallDetails(grpc.ClientCallDetails):
+class _ClientCallDetails(grpc.ClientCallDetails):  # type: ignore[misc]
     """Concrete implementation of ClientCallDetails for sync interceptors."""
 
     def __init__(
@@ -93,7 +93,7 @@ class _ClientCallDetails(grpc.ClientCallDetails):
         metadata: Sequence[tuple[str, str]] | None,
         credentials: grpc.CallCredentials | None,
     ) -> None:
-        self.method = method  # type: ignore[assignment]
-        self.timeout = timeout  # type: ignore[assignment]
-        self.metadata = metadata  # type: ignore[assignment]
-        self.credentials = credentials  # type: ignore[assignment]
+        self.method = method
+        self.timeout = timeout
+        self.metadata = metadata
+        self.credentials = credentials

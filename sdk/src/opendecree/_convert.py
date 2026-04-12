@@ -109,7 +109,7 @@ def typed_value_to_string(tv: object) -> str:
         case "bool_value":
             return "true" if val else "false"
         case "time_value":
-            return val.ToJsonString()
+            return str(val.ToJsonString())
         case "duration_value":
             # Use integer arithmetic to avoid float precision issues.
             total_ns = val.seconds * 1_000_000_000 + val.nanos

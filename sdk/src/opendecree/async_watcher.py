@@ -22,7 +22,7 @@ import asyncio
 import logging
 import random
 from collections.abc import AsyncIterator, Callable
-from typing import Generic, TypeVar
+from typing import Any, Generic, TypeVar
 
 import grpc.aio
 
@@ -129,7 +129,7 @@ class AsyncConfigWatcher:
     auto-starts on enter, auto-stops on exit.
     """
 
-    def __init__(self, stub: object, pb2: object, tenant_id: str, timeout: float) -> None:
+    def __init__(self, stub: Any, pb2: Any, tenant_id: str, timeout: float) -> None:
         self._stub = stub
         self._pb2 = pb2
         self._tenant_id = tenant_id
@@ -190,8 +190,8 @@ class AsyncConfigWatcher:
 
     async def _load_snapshot(self) -> None:
         """Load the current config values as the initial snapshot."""
-        resp = await self._stub.GetConfig(  # type: ignore[union-attr]
-            self._pb2.GetConfigRequest(tenant_id=self._tenant_id),  # type: ignore[union-attr]
+        resp = await self._stub.GetConfig(
+            self._pb2.GetConfigRequest(tenant_id=self._tenant_id),
             timeout=self._timeout,
         )
         all_values = process_get_all_response(resp)
@@ -206,8 +206,8 @@ class AsyncConfigWatcher:
 
         while not self._stopped:
             try:
-                stream = self._stub.Subscribe(  # type: ignore[union-attr]
-                    self._pb2.SubscribeRequest(  # type: ignore[union-attr]
+                stream = self._stub.Subscribe(
+                    self._pb2.SubscribeRequest(
                         tenant_id=self._tenant_id,
                         field_paths=field_paths,
                     ),
@@ -246,21 +246,21 @@ class AsyncConfigWatcher:
             except asyncio.CancelledError:
                 return
 
-    def _process_change(self, change: object) -> None:
+    def _process_change(self, change: Any) -> None:
         """Process a single ConfigChange from the stream."""
-        field_path = change.field_path  # type: ignore[union-attr]
+        field_path = change.field_path
         watched = self._fields.get(field_path)
         if watched is None:
             return
 
-        old_raw = typed_value_to_string(change.old_value) if change.HasField("old_value") else None  # type: ignore[union-attr]
-        new_raw = typed_value_to_string(change.new_value) if change.HasField("new_value") else None  # type: ignore[union-attr]
+        old_raw = typed_value_to_string(change.old_value) if change.HasField("old_value") else None
+        new_raw = typed_value_to_string(change.new_value) if change.HasField("new_value") else None
 
         sdk_change = Change(
             field_path=field_path,
             old_value=old_raw,
             new_value=new_raw,
-            version=change.version,  # type: ignore[union-attr]
-            changed_by=change.changed_by,  # type: ignore[union-attr]
+            version=change.version,
+            changed_by=change.changed_by,
         )
         watched._update(new_raw, sdk_change)

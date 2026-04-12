@@ -54,7 +54,7 @@ def with_retry(config: RetryConfig | None, fn: Callable[[], T]) -> T:
         try:
             return fn()
         except grpc.RpcError as e:
-            code = e.code()  # type: ignore[union-attr]
+            code = e.code()
             if code not in config.retryable_codes or attempt == config.max_attempts - 1:
                 raise
             last_err = e

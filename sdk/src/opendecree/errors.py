@@ -66,7 +66,7 @@ _STATUS_MAP: dict[grpc.StatusCode, type[DecreeError]] = {
 
 def map_grpc_error(err: grpc.RpcError) -> DecreeError:
     """Convert a gRPC RpcError to a typed DecreeError."""
-    code = err.code()  # type: ignore[union-attr]
-    details = err.details()  # type: ignore[union-attr]
+    code = err.code()
+    details = err.details()
     exc_class = _STATUS_MAP.get(code, DecreeError)
     return exc_class(details or str(err), code)

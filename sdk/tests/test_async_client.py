@@ -163,8 +163,21 @@ class TestAsyncConfigClientUnit:
             mock_channel.close.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_watch_returns_context(self):
+    async def test_watch_returns_watcher(self):
         client = self._make_client()
+
+        # Mock GetConfig for initial snapshot load
+        mock_resp = MagicMock()
+        mock_resp.config.values = []
+        client._stub.GetConfig = AsyncMock(return_value=mock_resp)
+
+        # Mock Subscribe to return an empty async iterator
+        async def _empty_stream():
+            return
+            yield  # noqa: RET504 — makes this an async generator
+
+        client._stub.Subscribe = MagicMock(return_value=_empty_stream())
+
         ctx = client.watch("t1")
         async with ctx as watcher:
             assert watcher is not None

@@ -6,6 +6,7 @@ SUPPORTED_SERVER_VERSION = ">=0.3.0,<1.0.0"
 PROTO_VERSION = "v1"
 
 from opendecree.async_client import AsyncConfigClient
+from opendecree.async_watcher import AsyncConfigWatcher, AsyncWatchedField
 from opendecree.client import ConfigClient
 from opendecree.errors import (
     AlreadyExistsError,
@@ -27,6 +28,8 @@ __all__ = [
     "SUPPORTED_SERVER_VERSION",
     "AlreadyExistsError",
     "AsyncConfigClient",
+    "AsyncConfigWatcher",
+    "AsyncWatchedField",
     "Change",
     "ChecksumMismatchError",
     "ConfigClient",

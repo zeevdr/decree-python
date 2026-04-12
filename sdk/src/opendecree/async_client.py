@@ -8,7 +8,10 @@ grpc.aio does not support intercept_channel.
 from __future__ import annotations
 
 from datetime import timedelta
-from typing import overload
+from typing import TYPE_CHECKING, overload
+
+if TYPE_CHECKING:
+    from opendecree.async_watcher import AsyncConfigWatcher
 
 import grpc
 import grpc.aio
@@ -234,29 +237,17 @@ class AsyncConfigClient:
         except grpc.aio.AioRpcError as e:
             raise map_grpc_error(e) from e
 
-    def watch(self, tenant_id: str) -> _AsyncWatcherContext:
+    def watch(self, tenant_id: str) -> AsyncConfigWatcher:
         """Create an async config watcher for a tenant.
 
-        Use as an async context manager::
+        Use as an async context manager — auto-starts on enter, auto-stops on exit::
 
             async with client.watch("tenant-id") as watcher:
                 fee = watcher.field("payments.fee", float, default=0.01)
                 print(fee.value)
 
-        Auto-starts on enter, auto-stops on exit.
+        The watcher uses the client's gRPC channel and auth settings.
         """
-        return _AsyncWatcherContext(self, tenant_id)
+        from opendecree.async_watcher import AsyncConfigWatcher
 
-
-class _AsyncWatcherContext:
-    """Async watcher context manager — placeholder for Phase 5."""
-
-    def __init__(self, client: AsyncConfigClient, tenant_id: str) -> None:
-        self._client = client
-        self._tenant_id = tenant_id
-
-    async def __aenter__(self) -> _AsyncWatcherContext:
-        return self
-
-    async def __aexit__(self, *exc: object) -> None:
-        pass
+        return AsyncConfigWatcher(self._stub, self._pb2, tenant_id, self._timeout)

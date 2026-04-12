@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 import grpc
 
 from opendecree._channel import create_channel
+from opendecree._compat import check_version_compatible, fetch_server_version
 from opendecree._interceptors import AuthInterceptor, _build_metadata
 from opendecree._retry import RetryConfig, with_retry
 from opendecree._stubs import (
@@ -29,6 +30,7 @@ from opendecree._stubs import (
     process_get_response,
 )
 from opendecree.errors import map_grpc_error
+from opendecree.types import ServerVersion
 
 
 class ConfigClient:
@@ -87,6 +89,15 @@ class ConfigClient:
         self._stub = cs_grpc.ConfigServiceStub(self._channel)
         self._pb2 = cs_pb2
 
+        from opendecree._generated.centralconfig.v1 import (
+            version_service_pb2,
+            version_service_pb2_grpc,
+        )
+
+        self._version_stub = version_service_pb2_grpc.VersionServiceStub(self._channel)
+        self._version_pb2 = version_service_pb2
+        self._server_version: ServerVersion | None = None
+
     def close(self) -> None:
         """Close the underlying gRPC channel."""
         self._raw_channel.close()
@@ -96,6 +107,35 @@ class ConfigClient:
 
     def __exit__(self, *exc: object) -> None:
         self.close()
+
+    @property
+    def server_version(self) -> ServerVersion:
+        """The server's version, fetched once and cached.
+
+        Returns:
+            ServerVersion with version and commit strings.
+
+        Raises:
+            UnavailableError: If the server is unreachable.
+        """
+        if self._server_version is None:
+            self._server_version = fetch_server_version(
+                self._version_stub, self._version_pb2, self._timeout
+            )
+        return self._server_version
+
+    def check_compatibility(self) -> None:
+        """Check that the server version is compatible with this SDK.
+
+        Fetches the server version (cached) and compares it against
+        ``opendecree.SUPPORTED_SERVER_VERSION``.
+
+        Raises:
+            IncompatibleServerError: If the server version is outside the
+                supported range.
+            UnavailableError: If the server is unreachable.
+        """
+        check_version_compatible(self.server_version.version)
 
     # --- get() with @overload for type safety ---
 

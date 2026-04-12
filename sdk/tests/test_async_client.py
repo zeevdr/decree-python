@@ -174,7 +174,7 @@ class TestAsyncConfigClientUnit:
         # Mock Subscribe to return an empty async iterator
         async def _empty_stream():
             return
-            yield  # noqa: RET504 — makes this an async generator
+            yield  # makes this an async generator
 
         client._stub.Subscribe = MagicMock(return_value=_empty_stream())
 

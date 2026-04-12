@@ -160,6 +160,45 @@ class TestConfigClientUnit:
         client.set_null("t1", "payments.fee")
         client._stub.SetField.assert_called_once()
 
+    def test_get_all_grpc_error(self):
+        client = self._make_client()
+        client._stub.GetConfig.side_effect = FakeRpcError(grpc.StatusCode.UNAVAILABLE, "down")
+
+        with pytest.raises(UnavailableError):
+            client.get_all("t1")
+
+    def test_set_grpc_error(self):
+        client = self._make_client()
+        client._stub.SetField.side_effect = FakeRpcError(grpc.StatusCode.UNAVAILABLE, "down")
+
+        with pytest.raises(UnavailableError):
+            client.set("t1", "payments.fee", "0.5%")
+
+    def test_set_many_grpc_error(self):
+        client = self._make_client()
+        client._stub.SetFields.side_effect = FakeRpcError(grpc.StatusCode.UNAVAILABLE, "down")
+
+        with pytest.raises(UnavailableError):
+            client.set_many("t1", {"a": "1"})
+
+    def test_set_null_grpc_error(self):
+        client = self._make_client()
+        client._stub.SetField.side_effect = FakeRpcError(grpc.StatusCode.UNAVAILABLE, "down")
+
+        with pytest.raises(UnavailableError):
+            client.set_null("t1", "payments.fee")
+
+    def test_no_interceptor_when_no_metadata(self):
+        """Client with no subject/token/role skips interceptor (line 69)."""
+        with patch("opendecree.client.create_channel") as mock_ch:
+            mock_channel = MagicMock()
+            mock_ch.return_value = mock_channel
+
+            with patch("opendecree.client.grpc.intercept_channel") as mock_intercept:
+                # Must override role="" to produce empty metadata
+                opendecree.ConfigClient("localhost:9090", role="")
+                mock_intercept.assert_not_called()
+
     def test_context_manager(self):
         with patch("opendecree.client.create_channel") as mock_ch:
             mock_channel = MagicMock()
@@ -174,6 +213,5 @@ class TestConfigClientUnit:
         client = self._make_client()
         ctx = client.watch("t1")
         assert ctx is not None
-        # Phase 4 will flesh this out.
         with ctx as watcher:
             assert watcher is not None

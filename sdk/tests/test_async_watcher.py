@@ -5,10 +5,13 @@ from __future__ import annotations
 import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
+import grpc
+import grpc.aio
 import pytest
 
 from opendecree.async_watcher import AsyncConfigWatcher, AsyncWatchedField
 from opendecree.types import Change
+from tests.conftest import FakeRpcError
 
 # --- AsyncWatchedField unit tests ---
 
@@ -222,3 +225,48 @@ class TestAsyncConfigWatcher:
         change.field_path = "unknown"
 
         w._process_change(change)  # should not raise
+
+    @pytest.mark.asyncio
+    async def test_reconnect_on_unavailable(self):
+        """Subscribe raises UNAVAILABLE, watcher reconnects then stops."""
+        w = self._make_watcher()
+        w.field("fee", float, default=0.0)
+
+        call_count = 0
+
+        def _subscribe_side_effect(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise FakeRpcError(grpc.StatusCode.UNAVAILABLE, "connection lost")
+
+            async def empty():
+                return
+                yield
+
+            return empty()
+
+        w._stub.Subscribe = MagicMock(side_effect=_subscribe_side_effect)
+
+        await w.start()
+        await asyncio.sleep(2.5)
+        await w.stop()
+
+        assert call_count >= 2
+
+    @pytest.mark.asyncio
+    async def test_non_retryable_error_stops_loop(self):
+        """Non-retryable gRPC error stops the subscribe loop."""
+        w = self._make_watcher()
+        w.field("fee", float, default=0.0)
+
+        w._stub.Subscribe = MagicMock(
+            side_effect=FakeRpcError(grpc.StatusCode.PERMISSION_DENIED, "forbidden")
+        )
+
+        await w.start()
+        await asyncio.sleep(0.5)
+        # Task should have exited on its own.
+        assert w._task is not None
+        assert w._task.done()
+        await w.stop()

@@ -22,15 +22,19 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Check lint
-        uses: astral-sh/ruff-action@v3
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          args: "check sdk/src/ sdk/tests/"
+          python-version: "3.12"
+
+      - name: Install ruff
+        run: pip install ruff
+
+      - name: Check lint
+        run: ruff check sdk/src/ sdk/tests/
 
       - name: Check formatting
-        uses: astral-sh/ruff-action@v3
-        with:
-          args: "format --check sdk/src/ sdk/tests/"
+        run: ruff format --check sdk/src/ sdk/tests/
 
   typecheck:
     name: Typecheck

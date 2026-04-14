@@ -1,3 +1,7 @@
+> **This project has moved to [opendecree/decree-python](https://github.com/opendecree/decree-python).** This repository is archived and read-only.
+
+---
+
 # OpenDecree Python SDK
 
 [![CI](https://github.com/zeevdr/decree-python/actions/workflows/ci.yml/badge.svg)](https://github.com/zeevdr/decree-python/actions/workflows/ci.yml)

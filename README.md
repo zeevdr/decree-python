@@ -59,6 +59,18 @@ async with AsyncConfigClient("localhost:9090", subject="myapp") as client:
     retries = await client.get("tenant-id", "payments.retries", int)
 ```
 
+## Examples
+
+Runnable examples in the [`examples/`](examples/) directory:
+
+| Example | What it shows |
+|---------|--------------|
+| [quickstart](examples/quickstart/) | Context manager, typed `get()`, `set()` |
+| [async-client](examples/async-client/) | `async with`, `await`, `asyncio.gather()` |
+| [live-config](examples/live-config/) | `ConfigWatcher`, `@on_change`, `changes()` |
+| [fastapi-integration](examples/fastapi-integration/) | Async watcher as FastAPI lifespan dependency |
+| [error-handling](examples/error-handling/) | `RetryConfig`, `nullable=True`, error hierarchy |
+
 ## Documentation
 
 - [Quick Start](sdk/docs/quickstart.md)
